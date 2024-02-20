@@ -1,16 +1,8 @@
 using DG.Tweening;
 using KBCore.Refs;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
-using UnityEngine.InputSystem;
-
-
 namespace RailShooter
 {
-
     public class PlayerController : ValidatedMonoBehaviour
     {
         [SerializeField, Self] InputReader input;
@@ -20,88 +12,90 @@ namespace RailShooter
 
         [SerializeField] Transform playerModel;
         [SerializeField] float followDistance = 2f;
-        [SerializeField] Vector2 movementLimit = new Vector2 (2f, 2f);
-        [SerializeField] float MovementSpeed = 10f;
+        [SerializeField] Vector2 movementLimit = new Vector2(2f, 2f);
 
+        [SerializeField] float movementSpeed = 10f;
         [SerializeField] float smoothTime = 0.2f;
 
         [SerializeField] float maxRoll = 15f;
-        [SerializeField] float rollSpeed = 10f;
+        [SerializeField] float rollSpeed = 2f;
         [SerializeField] float rollDuration = 1f;
 
         [SerializeField] Transform modelParent;
         [SerializeField] float rotationSpeed = 5f;
+
         Vector3 velocity;
-
         float roll;
-
-        void Awake()
-        {
-            input.LeftTag += OnLeftTag;
-            input.RightTag += OnRightTag;
-
-        }
 
 
         void Update()
         {
-            HandelPosition();
-            HandelRoll();
-            HandelRotation();
+            HandlePosition();
+            HandleRoll();
+            HandleRotation();
         }
 
-        void HandelRotation()
+        void HandleRotation()
         {
+            // Determine direction to the target
             Vector3 direction = aimTarget.position - transform.position;
-            Quaternion targetRotation = Quaternion.LookRotation(direction);
-            modelParent.rotation = Quaternion.Lerp(modelParent.rotation, targetRotation, Time.deltaTime*rotationSpeed);
 
+            // Calculate the rotation required to look at the target
+            Quaternion targetRotation = Quaternion.LookRotation(direction);
+            modelParent.rotation = Quaternion.Lerp(modelParent.rotation, targetRotation, Time.deltaTime * rotationSpeed);
         }
 
-        void HandelPosition()
+        void HandlePosition()
         {
+            // Calculate the target position based on the follow distance and the target's position
             Vector3 targetPos = followTarget.position + followTarget.forward * -followDistance;
 
+
+            // Apply smooth damp to the player's position
             Vector3 smoothedPos = Vector3.SmoothDamp(transform.position, targetPos, ref velocity, smoothTime);
 
-            Vector3 localPos = transform.InverseTransformPoint(smoothedPos);
-            localPos.x += input.Move.x * MovementSpeed + Time.deltaTime;
-            localPos.y += input.Move.y * MovementSpeed + Time.deltaTime;
 
+            // Calculate the new local position
+            Vector3 localPos = transform.InverseTransformPoint(smoothedPos);
+
+
+            localPos.x += input.Move.x * movementSpeed * Time.deltaTime;
+            localPos.y += input.Move.y * movementSpeed * Time.deltaTime;
+
+            // Clamp the local position
             localPos.x = Mathf.Clamp(localPos.x, -movementLimit.x, movementLimit.x);
             localPos.y = Mathf.Clamp(localPos.y, -movementLimit.y, movementLimit.y);
 
+
+            // Update the player's position
             transform.position = transform.TransformPoint(localPos);
+
         }
 
-        void HandelRoll()
+        void HandleRoll()
         {
+            // Match the player's rotation to the follow target's rotation
             transform.rotation = followTarget.rotation;
 
+
+            // Match the roll based on player input
             roll = Mathf.Lerp(roll, input.Move.x * maxRoll, Time.deltaTime * rollSpeed);
             transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, transform.rotation.eulerAngles.y, roll);
         }
-
-
-        void OnRightTag() => BarrelRoll(1);
-        void OnLeftTag() => BarrelRoll();
-
-
+        void OnLeftTap() => BarrelRoll();
+        void OnRightTap() => BarrelRoll(1);
         void BarrelRoll(int direction = -1)
         {
             if (!DOTween.IsTweening(playerModel))
             {
-                playerModel.DOLocalRotate(
-                    new Vector3(
-                playerModel.localEulerAngles.x,
-                playerModel.localEulerAngles.y,
-                360 * direction), rollDuration, RotateMode.LocalAxisAdd).SetEase(Ease.OutCubic);
+                playerModel.DOLocalRotate(new Vector3(playerModel.localEulerAngles.x, playerModel.localEulerAngles.y, 360 * direction),
+                    rollDuration, RotateMode.LocalAxisAdd).SetEase(Ease.OutCubic);
             }
         }
         void OnDestroy()
         {
-            input.LeftTag -= OnLeftTag;
-            input.RightTag -= OnRightTag;
+            input.LeftTap -= OnLeftTap;
+            input.RightTap -= OnRightTap;
         }
     }
 }
